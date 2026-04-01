@@ -40,13 +40,35 @@ export function TriangularProgram() {
     setError('');
 
     try {
+      const aNum = parseFloat(String(a));
+      const bNum = parseFloat(String(b));
+      const cNum = parseFloat(String(c));
+      const nNum = parseInt(String(n));
+      const seedNum = parseInt(String(seed));
+
+      // Validación básica del lado del cliente
+      if (isNaN(aNum) || isNaN(bNum) || isNaN(cNum) || isNaN(nNum) || nNum <= 0) {
+        setError('Ingrese parámetros válidos. n debe ser > 0');
+        setLoading(false);
+        return;
+      }
+
+      if (!(aNum < bNum && bNum < cNum)) {
+        setError('Error: debe cumplirse a < b < c');
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/simulate/triangular', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ a: parseFloat(String(a)), b: parseFloat(String(b)), c: parseFloat(String(c)), n: parseInt(String(n)), seed: parseInt(String(seed)) }),
+        body: JSON.stringify({ a: aNum, b: bNum, c: cNum, n: nNum, seed: seedNum }),
       });
 
-      if (!response.ok) throw new Error('Error en la simulación');
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Error en la simulación');
+      }
 
       const data = await response.json();
       setResult(data);
@@ -109,7 +131,7 @@ export function TriangularProgram() {
                 className="gap-2"
                 onClick={() => {
                   exportTriangularToCSV(
-                    result.allValues,
+                    result.values,
                     result.statistics,
                     result.theoreticalMean,
                     result.parameters

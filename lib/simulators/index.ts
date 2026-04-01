@@ -223,15 +223,15 @@ export class WarehouseSimulator {
   /**
    * Obtiene rango de tiempo de descarga según número de trabajadores
    * Distribución uniforme [a,b] en minutos
+   * Escalado: más trabajadores = menos tiempo
    */
   private getUnloadRange(equipment: number): [number, number] {
-    switch (equipment) {
-      case 3: return [20, 30];
-      case 4: return [15, 25];
-      case 5: return [10, 20];
-      case 6: return [5, 15];
-      default: return [15, 25];
-    }
+    // Rango base escalado según número de trabajadores
+    // Con más trabajadores, se descarga más rápido
+    const minTime = Math.max(5, 30 - (equipment * 2));
+    const maxTime = Math.max(10, 50 - (equipment * 2));
+    
+    return [minTime, maxTime];
   }
 
   /**

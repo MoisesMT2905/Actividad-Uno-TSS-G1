@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { HelpCircle, Download, ChevronDown } from 'lucide-react';
+import { HelpCircle, Download } from 'lucide-react';
 
 interface MachineEvent {
   eventNumber: number;
@@ -36,7 +36,6 @@ export function MachinesProgram() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<MachinesResult | null>(null);
   const [error, setError] = useState('');
-  const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
 
   const handleSimulate = async () => {
     setLoading(true);
@@ -166,37 +165,34 @@ export function MachinesProgram() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="border-b">
+                  <thead className="border-b bg-gray-50">
                     <tr>
                       <th className="text-left p-2">Evento</th>
                       <th className="text-left p-2">Tiempo (h)</th>
                       <th className="text-left p-2">Tipo</th>
                       <th className="text-left p-2">Máquina</th>
                       <th className="text-left p-2">Descompuestas</th>
-                      <th className="text-left p-2">Acción</th>
+                      <th className="text-left p-2">Cola</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.events.slice(0, 10).map(event => (
                       <tr key={event.eventNumber} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{event.eventNumber}</td>
+                        <td className="p-2 font-medium">{event.eventNumber}</td>
                         <td className="p-2">{event.time.toFixed(2)}</td>
                         <td className="p-2">{event.eventType === 'FAILURE' ? '⚠️ Falla' : '✓ Reparación'}</td>
-                        <td className="p-2">M{event.machineId}</td>
+                        <td className="p-2 font-medium">M{event.machineId}</td>
                         <td className="p-2">{event.machinesDown}</td>
-                        <td>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setExpandedEvent(expandedEvent === event.eventNumber ? null : event.eventNumber)}
-                          >
-                            <ChevronDown className="w-4 h-4" />
-                          </Button>
-                        </td>
+                        <td className="p-2">{event.queueLength}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="mt-4 text-xs text-gray-600">
+                <p className="font-medium">Nota: Mostrando los primeros 10 eventos de {result.events.length} totales.</p>
+                <p className="mt-1">Máquinas descompuestas = máquinas esperando o siendo reparadas</p>
+                <p className="mt-1">Cola = máquinas esperando mientras el mecánico repara otra</p>
               </div>
             </CardContent>
           </Card>

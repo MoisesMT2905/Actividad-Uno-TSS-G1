@@ -99,35 +99,55 @@ export function WarehouseProgram() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium">Trabajadores</label>
-              <select
-                value={equipment}
-                onChange={(e) => setEquipment(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value="3">3 trabajadores</option>
-                <option value="4">4 trabajadores</option>
-                <option value="5">5 trabajadores</option>
-                <option value="6">6 trabajadores</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">{equipmentDescriptions[equipment]}</p>
+              <label className="text-sm font-medium">Trabajadores (1-1,000,000)</label>
+              <Input 
+                type="number" 
+                value={equipment} 
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 1 && val <= 1000000) {
+                    setEquipment(val);
+                  }
+                }}
+                min="1"
+                max="1000000"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {equipment <= 6 && equipmentDescriptions[equipment] 
+                  ? `Rango: ${equipmentDescriptions[equipment]}` 
+                  : `Trabajadores: ${equipment}`}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium">Minutos de Simulación</label>
-              <Input type="number" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} />
+              <label className="text-sm font-medium">Minutos (1-1,000,000)</label>
+              <Input 
+                type="number" 
+                value={durationMinutes} 
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 1 && val <= 1000000) {
+                    setDurationMinutes(val);
+                  }
+                }}
+                min="1"
+                max="1000000"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Semilla</label>
-              <Input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} />
+              <Input 
+                type="number" 
+                value={seed} 
+                onChange={(e) => setSeed(e.target.value)}
+                min="1"
+              />
             </div>
             <div className="flex items-end gap-2">
-              <Button onClick={handleSimulate} disabled={loading} className="bg-blue-600">
+              <Button onClick={handleSimulate} disabled={loading} className="bg-blue-600 flex-1">
                 {loading ? 'Simulando...' : 'Simular'}
               </Button>
-            </div>
-            <div className="flex items-end gap-2">
               <Button variant="outline" onClick={() => setResult(null)}>
                 Reiniciar
               </Button>
