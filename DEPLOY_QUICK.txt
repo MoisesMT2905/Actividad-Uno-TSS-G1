@@ -1,0 +1,147 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                          🚀 DESPLIEGUE RÁPIDO                                 ║
+║                      Sistema de Simulación UMSS - Abril 2026                  ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+OPCIÓN 1: VERCEL (RECOMENDADO - 5 MINUTOS)
+═════════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Confirmar cambios en Git
+───────────────────────────────────
+$ git add .
+$ git commit -m "feat: Implementar HelpTooltip, AnalysisModal, SummaryPanel, Acción Buttons"
+$ git push origin main
+
+PASO 2: Vercel despliega automáticamente
+──────────────────────────────────────────
+Si tu proyecto está conectado a Vercel + GitHub:
+  → Vercel detecta el push y despliega automáticamente
+  → Puedes monitorear en https://vercel.com/dashboard
+
+Si NO está conectado:
+  1. Ve a https://vercel.com/dashboard
+  2. Click "Add New Project"
+  3. Selecciona tu repositorio
+  4. Click "Deploy"
+  5. Espera 1-2 minutos
+
+RESULTADO: Tu app en https://tu-proyecto.vercel.app ✅
+
+
+OPCIÓN 2: VERCEL CLI (MÁS RÁPIDO AÚN)
+═════════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Instalar Vercel CLI (si no lo tienes)
+───────────────────────────────────────────────
+$ npm install -g vercel
+
+PASO 2: Desplegar
+──────────────────
+$ vercel
+
+PASO 3: Seguir prompts
+───────────────────────
+  • Project name: [Enter] o escribe uno
+  • Build: [Enter] (default)
+  • Output: [Enter] (default)
+  • Deploy: Selecciona "Yes"
+
+RESULTADO: Deploy completo en ~2 minutos ✅
+
+
+OPCIÓN 3: PROBAR LOCALMENTE PRIMERO
+═════════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Instalar dependencias
+──────────────────────────────
+$ npm install
+
+PASO 2: Ejecutar en desarrollo
+───────────────────────────────
+$ npm run dev
+
+PASO 3: Abrir en navegador
+───────────────────────────
+http://localhost:3000
+
+PASO 4: Probar funcionalidades
+───────────────────────────────
+  ✓ Programa 1: Click en "?" → ¿Tooltip funciona?
+  ✓ Programa 1: Click en "Analizar" → ¿Modal abre?
+  ✓ Programa 3: ¿Columna "Estado" visible?
+  ✓ Programa 3: Click en botón → ¿Modal abre?
+  ✓ Programa 4: ¿Columna "Estado" visible?
+  ✓ Programa 4: Click en botón → ¿Modal abre?
+
+PASO 5: Compilar para producción
+─────────────────────────────────
+$ npm run build
+
+PASO 6: Deploy a Vercel (cuando esté listo)
+─────────────────────────────────────────────
+$ vercel --prod
+
+
+CONFIGURACIÓN RECOMENDADA PARA VERCEL
+═════════════════════════════════════════════════════════════════════════════════
+
+vercel.json (ya está incluido):
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "nodeVersion": "18.x"
+}
+
+
+ARCHIVOS IMPORTANTES
+═════════════════════════════════════════════════════════════════════════════════
+
+Para entender qué se cambió:
+  ├─ RESUMEN_MEJORAS.txt         ← Lee ESTO (resumen visual)
+  └─ MEJORAS_IMPLEMENTADAS.md    ← Detalles técnicos
+
+
+TROUBLESHOOTING
+═════════════════════════════════════════════════════════════════════════════════
+
+❌ "npm: command not found"
+   → Instala Node.js desde nodejs.org
+
+❌ "Port 3000 already in use"
+   → npm run dev -- -p 3001 (usa puerto 3001)
+
+❌ "Build failed"
+   → npm install
+   → npm run build
+   → Verifica el error en consola
+
+❌ "Vercel deploy stuck"
+   → git push origin main
+   → Vercel despliega automáticamente
+
+
+ESTADO ACTUAL
+═════════════════════════════════════════════════════════════════════════════════
+
+✅ Código compilado y sin errores
+✅ Componentes nuevos creados y funcionales
+✅ Todos los 4 programas mejorados
+✅ Documentación completada
+✅ LISTO PARA DESPLIEGUE
+
+
+SIGUIENTE PASO
+═════════════════════════════════════════════════════════════════════════════════
+
+Ejecuta OPCIÓN 1 o OPCIÓN 2 arriba.
+
+Si necesitas ayuda:
+  → Lee MEJORAS_IMPLEMENTADAS.md
+  → Lee RESUMEN_MEJORAS.txt
+  → Contacta a tu docente
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+                          ¡LISTO PARA DESPLIEGUE!
+═══════════════════════════════════════════════════════════════════════════════════

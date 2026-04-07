@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { HelpCircle, Download } from 'lucide-react';
+import { Download, ChevronDown } from 'lucide-react';
+import { HelpTooltip } from '@/components/shared/HelpTooltip';
+import { AnalysisModal } from '@/components/shared/AnalysisModal';
+import { SummaryPanel } from '@/components/shared/SummaryPanel';
 
 interface MachineEvent {
   eventNumber: number;
@@ -36,6 +39,8 @@ export function MachinesProgram() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<MachinesResult | null>(null);
   const [error, setError] = useState('');
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<MachineEvent | null>(null);
 
   const handleSimulate = async () => {
     setLoading(true);
@@ -74,9 +79,10 @@ export function MachinesProgram() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             🔧 Programa 3: Máquinas y Mecánico
-            <button className="text-blue-500" title="Ver ayuda">
-              <HelpCircle className="w-5 h-5" />
-            </button>
+            <HelpTooltip
+              title="Sistema de Colas Finitas"
+              content="Sistema M/M/1 con fuente finita. n máquinas, 1 mecánico. Tiempos de falla y reparación basados en distribuciones empíricas."
+            />
           </CardTitle>
           <CardDescription>
             Sistema de colas con fuente finita de máquinas. Tiempos de falla y reparación con distribuciones empíricas.
@@ -105,6 +111,14 @@ export function MachinesProgram() {
               <Button variant="outline" onClick={() => setResult(null)}>
                 Reiniciar
               </Button>
+              {result && (
+                <Button
+                  variant="outline"
+                  onClick={() => setAnalysisOpen(true)}
+                >
+                  📊 Analizar
+                </Button>
+              )}
             </div>
           </div>
 
@@ -114,31 +128,16 @@ export function MachinesProgram() {
 
       {result && (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Resumen Estadístico</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Máq. Descompuestas (Promedio)</p>
-                  <p className="text-lg font-bold">{result.statistics.avgMachinesDown.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Costo por Hora</p>
-                  <p className="text-lg font-bold">${result.statistics.totalCostPerHour.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Total de Fallas</p>
-                  <p className="text-lg font-bold">{result.statistics.totalFailures}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Tiempo de Reparación Promedio</p>
-                  <p className="text-lg font-bold">{result.statistics.avgRepairTime.toFixed(2)} h</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <SummaryPanel
+            title="Resumen Estadístico"
+            items={[
+              { label: 'Máq. Descompuestas (Prom)', value: result.statistics.avgMachinesDown.toFixed(2), color: 'red' },
+              { label: 'Costo/Hora', value: `$${result.statistics.totalCostPerHour.toFixed(2)}`, color: 'amber' },
+              { label: 'Total de Fallas', value: result.statistics.totalFailures, color: 'blue' },
+              { label: 'T. Reparación Prom', value: `${result.statistics.avgRepairTime.toFixed(2)} h`, color: 'green' },
+            ]}
+            interpretation={`En ${result.statistics.totalTime.toFixed(2)} horas de simulación con ${result.parameters.numMachines} máquinas y 1 mecánico, ocurrieron ${result.statistics.totalFailures} fallas. El costo promedio es $${result.statistics.totalCostPerHour.toFixed(2)}/hora.`}
+          />
 
           <Card>
             <CardHeader>
@@ -171,8 +170,10 @@ export function MachinesProgram() {
                       <th className="text-left p-2">Tiempo (h)</th>
                       <th className="text-left p-2">Tipo</th>
                       <th className="text-left p-2">Máquina</th>
+                      <th className="text-left p-2">Estado</th>
                       <th className="text-left p-2">Descompuestas</th>
                       <th className="text-left p-2">Cola</th>
+                      <th className="text-left p-2">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -182,8 +183,27 @@ export function MachinesProgram() {
                         <td className="p-2">{event.time.toFixed(2)}</td>
                         <td className="p-2">{event.eventType === 'FAILURE' ? '⚠️ Falla' : '✓ Reparación'}</td>
                         <td className="p-2 font-medium">M{event.machineId}</td>
+                        <td className="p-2">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            event.eventType === 'FAILURE' 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {event.eventType === 'FAILURE' ? 'Falla' : 'Reparado'}
+                          </span>
+                        </td>
                         <td className="p-2">{event.machinesDown}</td>
                         <td className="p-2">{event.queueLength}</td>
+                        <td className="p-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedEvent(event)}
+                            className="gap-1"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -196,6 +216,74 @@ export function MachinesProgram() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Modal de análisis general */}
+          <AnalysisModal
+            open={analysisOpen}
+            onOpenChange={setAnalysisOpen}
+            title="Análisis Detallado - Sistema de Máquinas"
+            fullWidth
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded">
+                  <p className="text-sm font-medium text-blue-900">Configuración</p>
+                  <p className="text-xs mt-2">Número de máquinas: {result.parameters.numMachines}</p>
+                  <p className="text-xs">Tiempo de simulación: {result.statistics.totalTime.toFixed(2)} horas</p>
+                  <p className="text-xs">Total de eventos: {result.events.length}</p>
+                </div>
+                <div className="p-4 bg-amber-50 rounded">
+                  <p className="text-sm font-medium text-amber-900">Métricas de desempeño</p>
+                  <p className="text-xs mt-2">Máquinas descompuestas (prom): {result.statistics.avgMachinesDown.toFixed(2)}</p>
+                  <p className="text-xs">Tasa de fallas: {(result.statistics.totalFailures / result.statistics.totalTime).toFixed(2)} fallas/hora</p>
+                  <p className="text-xs">Costo operacional: ${(result.statistics.totalCostPerHour * result.statistics.totalTime).toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                <p className="text-sm font-semibold mb-2">Interpretación operacional:</p>
+                <p className="text-sm text-gray-700">
+                  Con {result.parameters.numMachines} máquinas y 1 mecánico, el sistema experimenta un promedio de {result.statistics.avgMachinesDown.toFixed(2)} máquinas descompuestas.
+                  La tasa de fallas es {(result.statistics.totalFailures / result.statistics.totalTime).toFixed(2)} por hora, generando un costo total de ${(result.statistics.totalCostPerHour * result.statistics.totalTime).toFixed(2)}.
+                  El tiempo promedio de reparación es {result.statistics.avgRepairTime.toFixed(2)} horas.
+                </p>
+              </div>
+            </div>
+          </AnalysisModal>
+
+          {/* Modal de evento seleccionado */}
+          {selectedEvent && (
+            <AnalysisModal
+              open={!!selectedEvent}
+              onOpenChange={() => setSelectedEvent(null)}
+              title={`Detalle del Evento #${selectedEvent.eventNumber}`}
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 rounded">
+                    <p className="text-sm font-medium text-blue-900">Información del evento</p>
+                    <p className="text-xs mt-2">Número: {selectedEvent.eventNumber}</p>
+                    <p className="text-xs">Tiempo: {selectedEvent.time.toFixed(4)} horas</p>
+                    <p className="text-xs">Tipo: {selectedEvent.eventType === 'FAILURE' ? 'Falla de máquina' : 'Fin de reparación'}</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded">
+                    <p className="text-sm font-medium text-green-900">Estado del sistema</p>
+                    <p className="text-xs mt-2">Máquina afectada: M{selectedEvent.machineId}</p>
+                    <p className="text-xs">Máquinas descompuestas: {selectedEvent.machinesDown}</p>
+                    <p className="text-xs">Máquinas en cola: {selectedEvent.queueLength}</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                  <p className="text-sm font-semibold mb-2">Análisis del evento:</p>
+                  <p className="text-sm text-gray-700">
+                    {selectedEvent.eventType === 'FAILURE'
+                      ? `La máquina M${selectedEvent.machineId} falló en el tiempo ${selectedEvent.time.toFixed(4)} h. Había ${selectedEvent.machinesDown - 1} máquinas previamente descompuestas, ahora hay ${selectedEvent.machinesDown}. ${selectedEvent.queueLength > 0 ? `${selectedEvent.queueLength} máquina(s) esperando reparación.` : 'El mecánico está disponible.'}`
+                      : `La máquina M${selectedEvent.machineId} completó su reparación. Máquinas descompuestas: ${selectedEvent.machinesDown}. ${selectedEvent.queueLength > 0 ? `Hay ${selectedEvent.queueLength} máquina(s) esperando.` : 'Todas las máquinas están operativas.'}`
+                    }
+                  </p>
+                </div>
+              </div>
+            </AnalysisModal>
+          )}
         </>
       )}
     </div>

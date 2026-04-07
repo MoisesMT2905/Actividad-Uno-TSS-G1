@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { HelpCircle, Download } from 'lucide-react';
+import { Download, ChevronDown } from 'lucide-react';
+import { HelpTooltip } from '@/components/shared/HelpTooltip';
+import { AnalysisModal } from '@/components/shared/AnalysisModal';
+import { SummaryPanel } from '@/components/shared/SummaryPanel';
 
 interface WarehouseEvent {
   eventNumber: number;
@@ -40,6 +43,8 @@ export function WarehouseProgram() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<WarehouseResult | null>(null);
   const [error, setError] = useState('');
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<WarehouseEvent | null>(null);
 
   const handleSimulate = async () => {
     setLoading(true);
@@ -90,9 +95,10 @@ export function WarehouseProgram() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             🚚 Programa 4: Almacén y Camiones
-            <button className="text-blue-500" title="Ver ayuda">
-              <HelpCircle className="w-5 h-5" />
-            </button>
+            <HelpTooltip
+              title="Sistema M/U/1"
+              content="Sistema de colas con llegadas exponenciales (Poisson λ=2/hora) y descargas uniformes. Análisis de costos operacionales vs costo de espera."
+            />
           </CardTitle>
           <CardDescription>
             Sistema de colas M/U/1. Llegadas Poisson (λ=2 camiones/hora) y tiempos de descarga uniformes.
@@ -151,6 +157,14 @@ export function WarehouseProgram() {
               <Button variant="outline" onClick={() => setResult(null)}>
                 Reiniciar
               </Button>
+              {result && (
+                <Button
+                  variant="outline"
+                  onClick={() => setAnalysisOpen(true)}
+                >
+                  📊 Analizar
+                </Button>
+              )}
             </div>
           </div>
 
@@ -160,36 +174,18 @@ export function WarehouseProgram() {
 
       {result && (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Resumen Financiero</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Camiones Atendidos</p>
-                  <p className="text-lg font-bold">{result.statistics.trucksServed}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Espera Promedio</p>
-                  <p className="text-lg font-bold">{result.statistics.avgWaitTime.toFixed(2)} min</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Costo Salarios</p>
-                  <p className="text-lg font-bold">${result.statistics.equipmentCost.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Costo Espera</p>
-                  <p className="text-lg font-bold">${result.statistics.waitCost.toFixed(2)}</p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-xs text-gray-600">COSTO TOTAL</p>
-                <p className="text-2xl font-bold text-green-600">${result.statistics.totalCost.toFixed(2)}</p>
-                <p className="text-xs text-gray-600 mt-2">Utilización del Equipo: {result.statistics.utilizationRate.toFixed(1)}%</p>
-              </div>
-            </CardContent>
-          </Card>
+          <SummaryPanel
+            title="Resumen Financiero"
+            items={[
+              { label: 'Camiones Atendidos', value: result.statistics.trucksServed, color: 'blue' },
+              { label: 'Espera Promedio', value: `${result.statistics.avgWaitTime.toFixed(2)} min`, color: 'amber' },
+              { label: 'Costo Salarios', value: `$${result.statistics.equipmentCost.toFixed(2)}`, color: 'green' },
+              { label: 'Costo Espera', value: `$${result.statistics.waitCost.toFixed(2)}`, color: 'red' },
+              { label: 'Costo Total', value: `$${result.statistics.totalCost.toFixed(2)}`, color: 'green' },
+              { label: 'Utilización', value: `${result.statistics.utilizationRate.toFixed(1)}%`, color: 'blue' },
+            ]}
+            interpretation={`Se atendieron ${result.statistics.trucksServed} camiones con espera promedio de ${result.statistics.avgWaitTime.toFixed(2)} minutos. Costo total: $${result.statistics.totalCost.toFixed(2)}, siendo $${result.statistics.equipmentCost.toFixed(2)} en salarios y $${result.statistics.waitCost.toFixed(2)} en espera. Utilización: ${result.statistics.utilizationRate.toFixed(1)}%.`}
+          />
 
           <Card>
             <CardHeader>
@@ -233,23 +229,44 @@ export function WarehouseProgram() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="border-b">
+                  <thead className="border-b bg-gray-50">
                     <tr>
                       <th className="text-left p-2">Camión</th>
                       <th className="text-left p-2">Llegada (min)</th>
                       <th className="text-left p-2">Espera (min)</th>
                       <th className="text-left p-2">Duración (min)</th>
+                      <th className="text-left p-2">Estado</th>
                       <th className="text-left p-2">Cola</th>
+                      <th className="text-left p-2">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.events.slice(0, 10).map(event => (
                       <tr key={event.truckId} className="border-b hover:bg-gray-50">
-                        <td className="p-2">C{event.truckId}</td>
+                        <td className="p-2 font-medium">C{event.truckId}</td>
                         <td className="p-2">{event.arrivalTime.toFixed(2)}</td>
                         <td className="p-2">{event.waitTime.toFixed(2)}</td>
                         <td className="p-2">{(event.unloadEnd - event.unloadStart).toFixed(2)}</td>
+                        <td className="p-2">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            event.eventType === 'ARRIVAL'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {event.eventType === 'ARRIVAL' ? 'Llegada' : 'Descargado'}
+                          </span>
+                        </td>
                         <td className="p-2">{event.queueLength}</td>
+                        <td className="p-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedEvent(event)}
+                            className="gap-1"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -257,6 +274,77 @@ export function WarehouseProgram() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Modal de análisis general */}
+          <AnalysisModal
+            open={analysisOpen}
+            onOpenChange={setAnalysisOpen}
+            title="Análisis Detallado - Almacén y Camiones"
+            fullWidth
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded">
+                  <p className="text-sm font-medium text-blue-900">Configuración</p>
+                  <p className="text-xs mt-2">Trabajadores: {result.parameters.equipment}</p>
+                  <p className="text-xs">Duración: {result.parameters.durationMinutes} minutos</p>
+                  <p className="text-xs">Total de camiones: {result.statistics.trucksServed}</p>
+                  <p className="text-xs">Total de eventos: {result.events.length}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded">
+                  <p className="text-sm font-medium text-green-900">Métricas de desempeño</p>
+                  <p className="text-xs mt-2">Espera promedio: {result.statistics.avgWaitTime.toFixed(2)} min</p>
+                  <p className="text-xs">Utilización: {result.statistics.utilizationRate.toFixed(1)}%</p>
+                  <p className="text-xs">Costo total: ${result.statistics.totalCost.toFixed(2)}</p>
+                  <p className="text-xs">Costo por camión: ${(result.statistics.totalCost / result.statistics.trucksServed).toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                <p className="text-sm font-semibold mb-2">Análisis operacional:</p>
+                <p className="text-sm text-gray-700">
+                  Con {result.parameters.equipment} trabajadores, se atendieron {result.statistics.trucksServed} camiones en {result.parameters.durationMinutes} minutos.
+                  La espera promedio fue {result.statistics.avgWaitTime.toFixed(2)} minutos, generando un costo de espera de ${result.statistics.waitCost.toFixed(2)}.
+                  El costo de salarios fue ${result.statistics.equipmentCost.toFixed(2)}, para un costo total de ${result.statistics.totalCost.toFixed(2)} y una utilización de {result.statistics.utilizationRate.toFixed(1)}%.
+                </p>
+              </div>
+            </div>
+          </AnalysisModal>
+
+          {/* Modal de evento seleccionado */}
+          {selectedEvent && (
+            <AnalysisModal
+              open={!!selectedEvent}
+              onOpenChange={() => setSelectedEvent(null)}
+              title={`Detalle del Camión C${selectedEvent.truckId}`}
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 rounded">
+                    <p className="text-sm font-medium text-blue-900">Información de llegada</p>
+                    <p className="text-xs mt-2">Camión: C{selectedEvent.truckId}</p>
+                    <p className="text-xs">Tiempo de llegada: {selectedEvent.arrivalTime.toFixed(2)} min</p>
+                    <p className="text-xs">Tiempo de espera: {selectedEvent.waitTime.toFixed(2)} min</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded">
+                    <p className="text-sm font-medium text-green-900">Información de descarga</p>
+                    <p className="text-xs mt-2">Inicio: {selectedEvent.unloadStart.toFixed(2)} min</p>
+                    <p className="text-xs">Fin: {selectedEvent.unloadEnd.toFixed(2)} min</p>
+                    <p className="text-xs">Duración: {(selectedEvent.unloadEnd - selectedEvent.unloadStart).toFixed(2)} min</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                  <p className="text-sm font-semibold mb-2">Análisis del evento:</p>
+                  <p className="text-sm text-gray-700">
+                    El camión C{selectedEvent.truckId} llegó en {selectedEvent.arrivalTime.toFixed(2)} minutos y esperó {selectedEvent.waitTime.toFixed(2)} minutos antes de ser atendido.
+                    La descarga duró {(selectedEvent.unloadEnd - selectedEvent.unloadStart).toFixed(2)} minutos. 
+                    {selectedEvent.queueLength > 0 
+                      ? `Había ${selectedEvent.queueLength} camión(es) esperando.` 
+                      : 'No había otros camiones esperando.'}
+                  </p>
+                </div>
+              </div>
+            </AnalysisModal>
+          )}
         </>
       )}
     </div>

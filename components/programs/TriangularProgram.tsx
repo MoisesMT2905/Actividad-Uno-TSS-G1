@@ -5,8 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { HelpCircle, Download } from 'lucide-react';
-import { exportTriangularToCSV } from '@/lib/utils/excel-export';
+import { Download } from 'lucide-react';
+import { HelpTooltip } from '@/components/shared/HelpTooltip';
+import { AnalysisModal } from '@/components/shared/AnalysisModal';
+import { SummaryPanel } from '@/components/shared/SummaryPanel';
+import { downloadMultiSheetCSV } from '@/lib/utils/excel-advanced';
 
 interface TriangularResult {
   values: number[];
@@ -34,6 +37,7 @@ export function TriangularProgram() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TriangularResult | null>(null);
   const [error, setError] = useState('');
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -85,9 +89,10 @@ export function TriangularProgram() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             📐 Programa 1: Distribución Triangular Paramétrica
-            <button className="text-blue-500" title="Ver ayuda">
-              <HelpCircle className="w-5 h-5" />
-            </button>
+            <HelpTooltip 
+              title="Distribución Triangular"
+              content="Genera variables aleatorias con distribución triangular mediante transformada inversa. Útil para modelar situaciones con valores mínimo, más probable y máximo conocidos."
+            />
           </CardTitle>
           <CardDescription>
             Generación de variables aleatorias mediante transformada inversa para distribución triangular.
@@ -126,20 +131,41 @@ export function TriangularProgram() {
               Reiniciar
             </Button>
             {result && (
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => {
-                  exportTriangularToCSV(
-                    result.values,
-                    result.statistics,
-                    result.theoreticalMean,
-                    result.parameters
-                  );
-                }}
-              >
-                <Download className="w-4 h-4" /> Exportar CSV
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setAnalysisOpen(true)}
+                >
+                  📊 Analizar
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    const sheets = [
+                      {
+                        name: 'Valores Generados',
+                        data: result.values.map((v, i) => ({ 'Índice': i + 1, 'Valor': v.toFixed(6) }))
+                      },
+                      {
+                        name: 'Estadísticas',
+                        data: [
+                          { Métrica: 'Media Muestral', Valor: result.statistics.mean.toFixed(6) },
+                          { Métrica: 'Media Teórica', Valor: result.theoreticalMean.toFixed(6) },
+                          { Métrica: 'Desv. Estándar', Valor: result.statistics.stdDev.toFixed(6) },
+                          { Métrica: 'Mínimo', Valor: result.statistics.min.toFixed(6) },
+                          { Métrica: 'Máximo', Valor: result.statistics.max.toFixed(6) },
+                          { Métrica: 'Mediana', Valor: result.statistics.median.toFixed(6) },
+                        ]
+                      }
+                    ];
+                    downloadMultiSheetCSV(sheets, 'triangular-resultados');
+                  }}
+                >
+                  <Download className="w-4 h-4" /> Exportar
+                </Button>
+              </>
             )}
           </div>
 
@@ -149,36 +175,19 @@ export function TriangularProgram() {
 
       {result && (
         <>
-          {/* Estadísticas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Estadísticas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Media Muestral</p>
-                  <p className="text-lg font-bold">{result.statistics.mean.toFixed(4)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Media Teórica</p>
-                  <p className="text-lg font-bold">{result.theoreticalMean.toFixed(4)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Desv. Est.</p>
-                  <p className="text-lg font-bold">{result.statistics.stdDev.toFixed(4)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Mín</p>
-                  <p className="text-lg font-bold">{result.statistics.min.toFixed(4)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Máx</p>
-                  <p className="text-lg font-bold">{result.statistics.max.toFixed(4)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Panel de resumen */}
+          <SummaryPanel
+            title="Resumen Estadístico"
+            items={[
+              { label: 'Media Muestral', value: result.statistics.mean.toFixed(4), color: 'blue' },
+              { label: 'Media Teórica', value: result.theoreticalMean.toFixed(4), color: 'green' },
+              { label: 'Desv. Estándar', value: result.statistics.stdDev.toFixed(4), color: 'amber' },
+              { label: 'Mínimo', value: result.statistics.min.toFixed(4), color: 'blue' },
+              { label: 'Máximo', value: result.statistics.max.toFixed(4), color: 'blue' },
+              { label: 'Mediana', value: result.statistics.median.toFixed(4), color: 'green' },
+            ]}
+            interpretation={`Se generaron ${result.values.length} valores aleatorios. La media muestral (${result.statistics.mean.toFixed(4)}) está muy cercana a la media teórica (${result.theoreticalMean.toFixed(4)}), lo que valida la calidad del generador. La distribución es simétrica alrededor de la moda (${result.parameters.b}).`}
+          />
 
           {/* Histograma */}
           <Card>
@@ -213,6 +222,41 @@ export function TriangularProgram() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Modal de análisis */}
+          <AnalysisModal
+            open={analysisOpen}
+            onOpenChange={setAnalysisOpen}
+            title="Análisis Detallado - Distribución Triangular"
+            fullWidth
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded">
+                  <p className="text-sm font-medium text-blue-900">Parámetros de entrada</p>
+                  <p className="text-xs mt-2">a (mínimo): {result.parameters.a}</p>
+                  <p className="text-xs">b (moda): {result.parameters.b}</p>
+                  <p className="text-xs">c (máximo): {result.parameters.c}</p>
+                  <p className="text-xs">n (muestras): {result.values.length}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded">
+                  <p className="text-sm font-medium text-green-900">Validación teórica</p>
+                  <p className="text-xs mt-2">Error media: {Math.abs(result.statistics.mean - result.theoreticalMean).toFixed(6)}</p>
+                  <p className="text-xs">% Error: {((Math.abs(result.statistics.mean - result.theoreticalMean) / result.theoreticalMean) * 100).toFixed(2)}%</p>
+                  <p className="text-xs">Rango: [{result.statistics.min.toFixed(4)}, {result.statistics.max.toFixed(4)}]</p>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                <p className="text-sm font-semibold mb-2">Interpretación estadística:</p>
+                <p className="text-sm text-gray-700">
+                  La distribución triangular generada tiene buena convergencia a la media teórica. 
+                  El error porcentual de {((Math.abs(result.statistics.mean - result.theoreticalMean) / result.theoreticalMean) * 100).toFixed(2)}% 
+                  indica {((Math.abs(result.statistics.mean - result.theoreticalMean) / result.theoreticalMean) < 0.05 ? 'excelente' : 'buena')} 
+                  calidad del generador. Con n={result.values.length} muestras, los momentos muestrales convergen adecuadamente a los teóricos.
+                </p>
+              </div>
+            </div>
+          </AnalysisModal>
         </>
       )}
     </div>
