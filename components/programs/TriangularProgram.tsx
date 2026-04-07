@@ -9,7 +9,7 @@ import { Download } from 'lucide-react';
 import { HelpTooltip } from '@/components/shared/HelpTooltip';
 import { AnalysisModal } from '@/components/shared/AnalysisModal';
 import { SummaryPanel } from '@/components/shared/SummaryPanel';
-import { downloadMultiSheetCSV } from '@/lib/utils/excel-advanced';
+import { exportTriangularToXLSX } from '@/lib/utils/xlsx-export';
 
 interface TriangularResult {
   values: number[];
@@ -143,27 +143,16 @@ export function TriangularProgram() {
                   variant="outline"
                   className="gap-2"
                   onClick={() => {
-                    const sheets = [
-                      {
-                        name: 'Valores Generados',
-                        data: result.values.map((v, i) => ({ 'Índice': i + 1, 'Valor': v.toFixed(6) }))
-                      },
-                      {
-                        name: 'Estadísticas',
-                        data: [
-                          { Métrica: 'Media Muestral', Valor: result.statistics.mean.toFixed(6) },
-                          { Métrica: 'Media Teórica', Valor: result.theoreticalMean.toFixed(6) },
-                          { Métrica: 'Desv. Estándar', Valor: result.statistics.stdDev.toFixed(6) },
-                          { Métrica: 'Mínimo', Valor: result.statistics.min.toFixed(6) },
-                          { Métrica: 'Máximo', Valor: result.statistics.max.toFixed(6) },
-                          { Métrica: 'Mediana', Valor: result.statistics.median.toFixed(6) },
-                        ]
-                      }
-                    ];
-                    downloadMultiSheetCSV(sheets, 'triangular-resultados');
+                    exportTriangularToXLSX(
+                      result.values,
+                      result.statistics,
+                      result.theoreticalMean,
+                      result.parameters,
+                      result.histogram
+                    );
                   }}
                 >
-                  <Download className="w-4 h-4" /> Exportar
+                  <Download className="w-4 h-4" /> Exportar a Excel
                 </Button>
               </>
             )}
@@ -210,15 +199,26 @@ export function TriangularProgram() {
           {/* Tabla de primeros valores */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Primeros 20 Valores Generados</CardTitle>
+              <CardTitle className="text-lg">Todos los valores generados ({result.values.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-4 gap-2 text-sm">
-                {result.values.slice(0, 20).map((val, i) => (
-                  <div key={i} className="bg-gray-100 p-2 rounded">
-                    {val.toFixed(4)}
-                  </div>
-                ))}
+              <div className="overflow-y-auto border rounded" style={{ maxHeight: '400px' }}>
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left p-3">#</th>
+                      <th className="text-left p-3">Valor generado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.values.map((val, i) => (
+                      <tr key={i} className="border-b hover:bg-gray-50">
+                        <td className="p-3 font-medium">{i + 1}</td>
+                        <td className="p-3">{val.toFixed(6)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>

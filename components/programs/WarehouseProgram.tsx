@@ -9,6 +9,7 @@ import { Download, ChevronDown } from 'lucide-react';
 import { HelpTooltip } from '@/components/shared/HelpTooltip';
 import { AnalysisModal } from '@/components/shared/AnalysisModal';
 import { SummaryPanel } from '@/components/shared/SummaryPanel';
+import { exportWarehouseToXLSX } from '@/lib/utils/xlsx-export';
 
 interface WarehouseEvent {
   eventNumber: number;
@@ -158,12 +159,27 @@ export function WarehouseProgram() {
                 Reiniciar
               </Button>
               {result && (
-                <Button
-                  variant="outline"
-                  onClick={() => setAnalysisOpen(true)}
-                >
-                  📊 Analizar
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setAnalysisOpen(true)}
+                  >
+                    📊 Analizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      exportWarehouseToXLSX(
+                        result.events,
+                        result.statistics,
+                        result.parameters
+                      );
+                    }}
+                  >
+                    <Download className="w-4 h-4" /> Exportar a Excel
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -224,12 +240,12 @@ export function WarehouseProgram() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Tabla de Eventos (primeros 10)</CardTitle>
+              <CardTitle className="text-lg">Tabla de eventos - todos los registros ({result.events.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto border rounded" style={{ maxHeight: '400px' }}>
                 <table className="w-full text-sm">
-                  <thead className="border-b bg-gray-50">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
                     <tr>
                       <th className="text-left p-2">Camión</th>
                       <th className="text-left p-2">Llegada (min)</th>
@@ -241,7 +257,7 @@ export function WarehouseProgram() {
                     </tr>
                   </thead>
                   <tbody>
-                    {result.events.slice(0, 10).map(event => (
+                    {result.events.map(event => (
                       <tr key={event.truckId} className="border-b hover:bg-gray-50">
                         <td className="p-2 font-medium">C{event.truckId}</td>
                         <td className="p-2">{event.arrivalTime.toFixed(2)}</td>

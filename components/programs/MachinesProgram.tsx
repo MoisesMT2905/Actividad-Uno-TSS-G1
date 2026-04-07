@@ -9,6 +9,7 @@ import { Download, ChevronDown } from 'lucide-react';
 import { HelpTooltip } from '@/components/shared/HelpTooltip';
 import { AnalysisModal } from '@/components/shared/AnalysisModal';
 import { SummaryPanel } from '@/components/shared/SummaryPanel';
+import { exportMachinesToXLSX } from '@/lib/utils/xlsx-export';
 
 interface MachineEvent {
   eventNumber: number;
@@ -112,12 +113,27 @@ export function MachinesProgram() {
                 Reiniciar
               </Button>
               {result && (
-                <Button
-                  variant="outline"
-                  onClick={() => setAnalysisOpen(true)}
-                >
-                  📊 Analizar
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setAnalysisOpen(true)}
+                  >
+                    📊 Analizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      exportMachinesToXLSX(
+                        result.events,
+                        result.statistics,
+                        result.parameters
+                      );
+                    }}
+                  >
+                    <Download className="w-4 h-4" /> Exportar a Excel
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -159,12 +175,12 @@ export function MachinesProgram() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Tabla de Eventos (primeros 10)</CardTitle>
+              <CardTitle className="text-lg">Tabla de eventos - todos los registros ({result.events.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto border rounded" style={{ maxHeight: '400px' }}>
                 <table className="w-full text-sm">
-                  <thead className="border-b bg-gray-50">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
                     <tr>
                       <th className="text-left p-2">Evento</th>
                       <th className="text-left p-2">Tiempo (h)</th>
@@ -177,7 +193,7 @@ export function MachinesProgram() {
                     </tr>
                   </thead>
                   <tbody>
-                    {result.events.slice(0, 10).map(event => (
+                    {result.events.map(event => (
                       <tr key={event.eventNumber} className="border-b hover:bg-gray-50">
                         <td className="p-2 font-medium">{event.eventNumber}</td>
                         <td className="p-2">{event.time.toFixed(2)}</td>
