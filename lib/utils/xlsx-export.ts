@@ -1,3 +1,5 @@
+'use client';
+
 import * as XLSX from 'xlsx';
 
 export interface SheetData {
@@ -7,46 +9,92 @@ export interface SheetData {
 }
 
 /**
- * Exporta datos a un archivo Excel XLSX con múltiples hojas
+ * Convierte array de objetos a CSV
+ */
+function convertToCSV(data: any[]): string {
+  if (!data || data.length === 0) return '';
+  
+  const headers = Object.keys(data[0]);
+  const headerRow = headers.map(h => `"${h}"`).join(',');
+  
+  const rows = data.map(row =>
+    headers.map(header => {
+      const value = row[header] ?? '';
+      const stringValue = String(value).replace(/"/g, '""');
+      return `"${stringValue}"`;
+    }).join(',')
+  );
+  
+  return [headerRow, ...rows].join('\n');
+}
+
+/**
+ * Descarga un archivo CSV
+ */
+function downloadCSV(content: string, fileName: string) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${fileName}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Exporta datos a un archivo XLSX con múltiples hojas (usando XLSX library)
  * @param sheets Array de hojas con nombre y datos
  * @param fileName Nombre del archivo (sin extensión)
  */
 export function downloadXLSX(sheets: SheetData[], fileName: string) {
-  const workbook = XLSX.utils.book_new();
+  try {
+    const workbook = XLSX.utils.book_new();
 
-  sheets.forEach(sheet => {
-    // Si hay columnas especificadas, reordenar los datos
-    let sheetData = sheet.data;
-    if (sheet.columns && sheet.columns.length > 0) {
-      sheetData = sheet.data.map(row => {
-        const orderedRow: any = {};
-        sheet.columns!.forEach(col => {
-          orderedRow[col] = row[col] || row[col.toLowerCase()] || row[col.replace(/\s+/g, '_').toLowerCase()] || '';
+    sheets.forEach(sheet => {
+      // Si hay columnas especificadas, reordenar los datos
+      let sheetData = sheet.data;
+      if (sheet.columns && sheet.columns.length > 0) {
+        sheetData = sheet.data.map(row => {
+          const orderedRow: any = {};
+          sheet.columns!.forEach(col => {
+            orderedRow[col] = row[col] || row[col.toLowerCase()] || row[col.replace(/\s+/g, '_').toLowerCase()] || '';
+          });
+          return orderedRow;
         });
-        return orderedRow;
-      });
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(sheetData);
+      
+      // Ajustar ancho de columnas automáticamente
+      const colWidths: any[] = [];
+      if (sheetData.length > 0) {
+        const firstRow = sheetData[0];
+        Object.keys(firstRow).forEach(key => {
+          const maxLength = Math.max(
+            key.length,
+            ...sheetData.map(row => String(row[key] || '').length)
+          );
+          colWidths.push({ wch: Math.min(maxLength + 2, 50) });
+        });
+        worksheet['!cols'] = colWidths;
+      }
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
+    });
+
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  } catch (error) {
+    console.error('[v0] Error exporting XLSX, trying fallback CSV:', error);
+    // Fallback a CSV si XLSX falla
+    if (sheets.length > 0) {
+      const csvContent = convertToCSV(sheets[0].data);
+      downloadCSV(csvContent, fileName);
     }
-
-    const worksheet = XLSX.utils.json_to_sheet(sheetData);
-    
-    // Ajustar ancho de columnas automáticamente
-    const colWidths: any[] = [];
-    if (sheetData.length > 0) {
-      const firstRow = sheetData[0];
-      Object.keys(firstRow).forEach(key => {
-        const maxLength = Math.max(
-          key.length,
-          ...sheetData.map(row => String(row[key] || '').length)
-        );
-        colWidths.push({ wch: Math.min(maxLength + 2, 50) });
-      });
-      worksheet['!cols'] = colWidths;
-    }
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
-  });
-
-  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  }
 }
 
 /**
