@@ -134,9 +134,9 @@ export function exportTriangularToXLSX(
     {
       name: 'Histograma',
       data: histogram.map((bin: any) => ({
-        'Intervalo': `[${bin.x0.toFixed(2)}, ${bin.x1.toFixed(2)})`,
-        'Frecuencia': bin.frequency,
-        'Frecuencia relativa': (bin.frequency / values.length).toFixed(4)
+        'Intervalo (centro)': bin.center ? bin.center.toFixed(2) : 'N/A',
+        'Frecuencia': bin.frequency || 0,
+        'Frecuencia relativa': values.length > 0 ? (bin.frequency / values.length).toFixed(4) : '0'
       }))
     }
   ];
@@ -178,9 +178,9 @@ export function exportCubicToXLSX(
     {
       name: 'Histograma',
       data: histogram.map((bin: any) => ({
-        'Intervalo': `[${bin.x0.toFixed(2)}, ${bin.x1.toFixed(2)})`,
-        'Frecuencia': bin.frequency,
-        'Frecuencia relativa': (bin.frequency / values.length).toFixed(4)
+        'Intervalo (centro)': bin.center ? bin.center.toFixed(2) : 'N/A',
+        'Frecuencia': bin.frequency || 0,
+        'Frecuencia relativa': values.length > 0 ? (bin.frequency / values.length).toFixed(4) : '0'
       }))
     }
   ];
