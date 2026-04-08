@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const theoreticalMean = generator.theoreticalMean();
 
     return NextResponse.json({
-      values: values.slice(0, 100),
+      values: values,
       allValues: values,
       statistics: stats,
       theoreticalMean,
