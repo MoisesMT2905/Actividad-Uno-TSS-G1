@@ -76,7 +76,17 @@ export function CubicProgram() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium">Número de Muestras</label>
-              <Input type="number" value={n} onChange={(e) => setN(e.target.value)} />
+              <Input
+                type="number"
+                min="10"
+                max="1000000"
+                step="1000"
+                value={n}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 1000;
+                  setN(Math.max(10, Math.min(value, 1000000)));
+                }}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Semilla</label>
