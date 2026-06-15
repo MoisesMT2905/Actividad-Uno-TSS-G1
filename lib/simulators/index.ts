@@ -1,6 +1,7 @@
 /**
  * Simuladores para Programas 3 y 4
- * Basado en el Contexto A (documento .docx)
+ * PROGRAMA 3: Máquinas y Mecánico (distribuciones empíricas)
+ * PROGRAMA 4: Almacén y Camiones (exponencial y uniforme)
  */
 
 import { EmpiricDistribution, EmpiricInterval } from '@/lib/generators/distributions';
@@ -13,7 +14,10 @@ export interface MachineEvent {
   time: number;
   eventType: 'FAILURE' | 'REPAIR_END';
   machineId: number;
-  repairTime?: number;       // duración de la reparación (solo en evento FAILURE cuando inicia reparación)
+  failureTime?: number;
+  repairTime?: number;
+  rFailure?: number;
+  rRepair?: number;
   queueLength: number;
   machinesDown: number;
   area: number;
@@ -31,11 +35,12 @@ export interface MachineResult {
 }
 
 export class MachinesSimulator {
-  private failureDist: EmpiricDistribution;
-  private repairDist: EmpiricDistribution;
+  private failureDistribution: EmpiricDistribution;
+  private repairDistribution: EmpiricDistribution;
   private rng: CongruencialMixto;
 
   constructor(seed: number = 12345) {
+    // Tabla de fallas (tiempo entre descomposturas en horas)
     const failureIntervals: EmpiricInterval[] = [
       { limInf: 6, limSup: 8, probability: 0.10 },
       { limInf: 8, limSup: 10, probability: 0.15 },
@@ -44,6 +49,8 @@ export class MachinesSimulator {
       { limInf: 16, limSup: 18, probability: 0.18 },
       { limInf: 18, limSup: 20, probability: 0.07 },
     ];
+
+    // Tabla de reparaciones (tiempo de reparación en horas)
     const repairIntervals: EmpiricInterval[] = [
       { limInf: 2, limSup: 4, probability: 0.15 },
       { limInf: 4, limSup: 6, probability: 0.25 },
@@ -51,127 +58,111 @@ export class MachinesSimulator {
       { limInf: 8, limSup: 10, probability: 0.20 },
       { limInf: 10, limSup: 12, probability: 0.10 },
     ];
-    this.failureDist = new EmpiricDistribution(failureIntervals);
-    this.repairDist = new EmpiricDistribution(repairIntervals);
+
+    this.failureDistribution = new EmpiricDistribution(failureIntervals);
+    this.repairDistribution = new EmpiricDistribution(repairIntervals);
     this.rng = new CongruencialMixto(seed);
   }
 
-  simulate(numMachines: number, simulationHours: number): MachineResult {
+  /**
+   * Simula el sistema de máquinas durante un período determinado
+   * 
+   * @param numMachines Número de máquinas (por defecto 5)
+   * @param simulationHours Horas de simulación (por defecto 480)
+   */
+  simulate(numMachines: number = 5, simulationHours: number = 480): MachineResult {
     const events: MachineEvent[] = [];
     let eventNumber = 0;
 
-    // Estado: false = operativa, true = descompuesta
-    let broken: boolean[] = new Array(numMachines).fill(false);
-    let nextFailure: number[] = new Array(numMachines).fill(Infinity);
-    let queue: number[] = [];
-    let repairingMachine = -1;
-    let repairEndTime = Infinity;
-
-    let currentTime = 0;
-    let lastEventTime = 0;
-    let totalArea = 0;
-    let totalFailures = 0;
-    let totalRepairDuration = 0;
-
-    // Inicializar primeras fallas
+    // Inicializar próximas fallas de cada máquina
+    const nextFailureTimes: number[] = [];
     for (let i = 0; i < numMachines; i++) {
       const R = this.rng.nextUniform();
-      nextFailure[i] = this.failureDist.generate(R);
+      nextFailureTimes[i] = this.failureDistribution.generate(R);
     }
 
+    let currentTime = 0;
+    let repairingMachineId = -1;
+    let repairEndTime = Number.MAX_VALUE;
+    let machinesDown = 0;
+    let totalArea = 0;
+
+    // Simulación de eventos
     while (currentTime < simulationHours) {
-      // Encontrar próxima falla entre máquinas operativas
-      let nextFailureTime = Infinity;
+      // Encontrar próximo evento (falla o fin de reparación)
+      let nextEventTime = simulationHours;
+      let nextEventMachine = -1;
+      let isRepairEnd = false;
+
+      // Verificar próximas fallas
       for (let i = 0; i < numMachines; i++) {
-        if (!broken[i] && nextFailure[i] < nextFailureTime) {
-          nextFailureTime = nextFailure[i];
+        if (nextFailureTimes[i] < nextEventTime) {
+          nextEventTime = nextFailureTimes[i];
+          nextEventMachine = i;
+          isRepairEnd = false;
         }
       }
-      const nextEventTime = Math.min(nextFailureTime, repairEndTime);
+
+      // Verificar fin de reparación
+      if (repairEndTime < nextEventTime) {
+        nextEventTime = repairEndTime;
+        isRepairEnd = true;
+      }
+
       if (nextEventTime >= simulationHours) break;
 
-      const delta = nextEventTime - lastEventTime;
-      const brokenCount = broken.filter(b => b).length;
-      totalArea += delta * brokenCount;
-      lastEventTime = nextEventTime;
       currentTime = nextEventTime;
 
-      const isRepair = (repairEndTime <= nextFailureTime);
-      let machineId = -1;
+      if (isRepairEnd) {
+        // Evento: FIN_REPARACIÓN
+        machinesDown--;
+        repairingMachineId = -1;
+        repairEndTime = Number.MAX_VALUE;
 
-      if (isRepair) {
-        // Fin de reparación
-        machineId = repairingMachine;
-        broken[machineId] = false;
-        repairingMachine = -1;
-        repairEndTime = Infinity;
-
-        // Reprogramar falla de esta máquina
-        const R = this.rng.nextUniform();
-        nextFailure[machineId] = currentTime + this.failureDist.generate(R);
-
-        // Si hay cola, iniciar reparación de la siguiente
-        if (queue.length > 0) {
-          const nextMachine = queue.shift()!;
-          repairingMachine = nextMachine;
-          const Rrep = this.rng.nextUniform();
-          const repairDur = this.repairDist.generate(Rrep);
-          repairEndTime = currentTime + repairDur;
-          totalRepairDuration += repairDur;
-        }
-
-        events.push({
-          eventNumber: eventNumber++,
-          time: currentTime,
-          eventType: 'REPAIR_END',
-          machineId,
-          queueLength: queue.length,
-          machinesDown: broken.filter(b => b).length,
-          area: totalArea,
-        });
-      } else {
-        // Falla de máquina
-        // Determinar cuál máquina falla (la que tiene nextFailure más pequeño)
-        let minTime = Infinity;
+        // Buscar siguiente máquina en falla
         for (let i = 0; i < numMachines; i++) {
-          if (!broken[i] && nextFailure[i] < minTime) {
-            minTime = nextFailure[i];
-            machineId = i;
+          if (i !== nextEventMachine && nextFailureTimes[i] < currentTime) {
+            const R = this.rng.nextUniform();
+            const repairTime = this.repairDistribution.generate(R);
+            repairingMachineId = i;
+            repairEndTime = currentTime + repairTime;
+            break;
           }
         }
-        if (machineId === -1) continue;
+      } else {
+        // Evento: FALLA de máquina
+        machinesDown++;
+        const R = this.rng.nextUniform();
+        const failureTime = this.failureDistribution.generate(R);
+        nextFailureTimes[nextEventMachine] = currentTime + failureTime;
 
-        broken[machineId] = true;
-        totalFailures++;
-
-        let repairDur: number | undefined = undefined;
-        if (repairingMachine === -1) {
-          // Iniciar reparación inmediata
-          repairingMachine = machineId;
-          const Rrep = this.rng.nextUniform();
-          repairDur = this.repairDist.generate(Rrep);
-          repairEndTime = currentTime + repairDur;
-          totalRepairDuration += repairDur;
-        } else {
-          // Encolar
-          queue.push(machineId);
+        // Si mecánico está libre, inicia reparación
+        if (repairingMachineId === -1) {
+          const R2 = this.rng.nextUniform();
+          const repairTime = this.repairDistribution.generate(R2);
+          repairingMachineId = nextEventMachine;
+          repairEndTime = currentTime + repairTime;
         }
-
-        events.push({
-          eventNumber: eventNumber++,
-          time: currentTime,
-          eventType: 'FAILURE',
-          machineId,
-          repairTime: repairDur,
-          queueLength: queue.length,
-          machinesDown: broken.filter(b => b).length,
-          area: totalArea,
-        });
       }
+
+      // Acumular área (máquinas descompuestas * tiempo)
+      if (events.length > 0) {
+        const timeDelta = currentTime - events[events.length - 1].time;
+        totalArea += machinesDown * timeDelta;
+      }
+
+      events.push({
+        eventNumber: eventNumber++,
+        time: currentTime,
+        eventType: isRepairEnd ? 'REPAIR_END' : 'FAILURE',
+        machineId: nextEventMachine,
+        queueLength: Math.max(0, machinesDown - 1),
+        machinesDown: machinesDown,
+        area: totalArea,
+      });
     }
 
-    const avgMachinesDown = totalArea / simulationHours;
-    const avgRepairTime = totalFailures > 0 ? totalRepairDuration / totalFailures : 0;
+    const avgMachinesDown = simulationHours > 0 ? totalArea / simulationHours : 0;
     const costPerHour = 500 * avgMachinesDown + 50 / numMachines;
 
     return {
@@ -180,8 +171,10 @@ export class MachinesSimulator {
       totalCostPerHour: costPerHour,
       statistics: {
         totalTime: currentTime,
-        totalFailures,
-        avgRepairTime,
+        totalFailures: events.filter(e => e.eventType === 'FAILURE').length,
+        avgRepairTime: events.length > 0
+          ? events.reduce((acc, e) => acc + (e.repairTime || 0), 0) / events.length
+          : 0,
       },
     };
   }
@@ -194,11 +187,16 @@ export interface WarehouseEvent {
   time: number;
   eventType: 'ARRIVAL' | 'UNLOAD_END';
   truckId: number;
+  timeBetweenArrivals?: number;
+  unloadDuration?: number;
+  R_arrival?: number;
+  R_unload?: number;
   arrivalTime: number;
   unloadStart: number;
   unloadEnd: number;
   waitTime: number;
   queueLength: number;
+  equipmentBusy: boolean;
 }
 
 export interface WarehouseResult {
@@ -214,122 +212,102 @@ export interface WarehouseResult {
 
 export class WarehouseSimulator {
   private rng: CongruencialMixto;
-  private equipment: number;
-  private minUnload: number;
-  private maxUnload: number;
+  private lambda: number = 2; // camiones por hora = 30 minutos promedio
+  private equipment: number; // 3-6 trabajadores
 
-  constructor(equipment: number, seed: number = 12345) {
+  constructor(equipment: number = 4, seed: number = 12345) {
     this.rng = new CongruencialMixto(seed);
     this.equipment = equipment;
-    // Rangos según Contexto A
-    switch (equipment) {
-      case 3: this.minUnload = 20; this.maxUnload = 30; break;
-      case 4: this.minUnload = 15; this.maxUnload = 25; break;
-      case 5: this.minUnload = 10; this.maxUnload = 20; break;
-      case 6: this.minUnload = 5;  this.maxUnload = 15; break;
-      default: this.minUnload = 20; this.maxUnload = 30;
-    }
   }
 
+  /**
+   * Obtiene rango de tiempo de descarga según número de trabajadores
+   * Distribución uniforme [a,b] en minutos
+   * Escalado: más trabajadores = menos tiempo
+   */
+  private getUnloadRange(equipment: number): [number, number] {
+    // Rango base escalado según número de trabajadores
+    // Con más trabajadores, se descarga más rápido
+    const minTime = Math.max(5, 30 - (equipment * 2));
+    const maxTime = Math.max(10, 50 - (equipment * 2));
+    
+    return [minTime, maxTime];
+  }
+
+  /**
+   * Simula el almacén durante un turno de 8 horas (480 minutos)
+   */
   simulate(durationMinutes: number = 480): WarehouseResult {
     const events: WarehouseEvent[] = [];
     let eventNumber = 0;
-
     let currentTime = 0;
-    let nextArrival = this.generateExponentialTime();
+    let nextArrivalTime = this.generateExponentialTime();
     let equipmentFreeTime = 0;
-    let queue: number[] = []; // almacena tiempos de llegada de camiones en espera
     let totalWaitTime = 0;
-    let totalServiceTime = 0; // para utilización
-    let truckId = 0;
+    let queueLength = 0;
+    let truckCount = 0;
 
-    while (currentTime < durationMinutes || equipmentFreeTime > currentTime || queue.length > 0) {
-      // Determinar próximo evento: llegada o fin de descarga
-      let nextEventTime = Math.min(nextArrival, equipmentFreeTime);
-      if (nextEventTime >= Infinity) break;
+    const [minUnload, maxUnload] = this.getUnloadRange(this.equipment);
 
-      const delta = nextEventTime - currentTime;
-      currentTime = nextEventTime;
+    while (currentTime < durationMinutes) {
+      if (nextArrivalTime <= durationMinutes) {
+        currentTime = nextArrivalTime;
+        truckCount++;
 
-      if (nextArrival <= equipmentFreeTime) {
-        // Evento: LLEGADA de un nuevo camión
-        truckId++;
-        const arrivalTime = currentTime;
+        const R_unload = this.rng.nextUniform();
+        const unloadDuration = minUnload + (maxUnload - minUnload) * R_unload;
+        
         let waitTime = 0;
         let unloadStart = currentTime;
-        let unloadEnd = currentTime;
+        let unloadEnd = currentTime + unloadDuration;
 
         if (currentTime < equipmentFreeTime) {
-          // Equipo ocupado, encolar
-          queue.push(arrivalTime);
-          waitTime = 0; // se calculará después cuando salga de la cola
+          waitTime = equipmentFreeTime - currentTime;
           unloadStart = equipmentFreeTime;
+          unloadEnd = equipmentFreeTime + unloadDuration;
+          queueLength++;
         } else {
-          // Equipo libre, atender inmediatamente
-          const unloadDur = this.minUnload + (this.maxUnload - this.minUnload) * this.rng.nextUniform();
-          unloadStart = currentTime;
-          unloadEnd = currentTime + unloadDur;
-          equipmentFreeTime = unloadEnd;
-          totalServiceTime += unloadDur;
-          waitTime = 0;
+          queueLength = 0;
         }
+
+        totalWaitTime += waitTime;
+        equipmentFreeTime = unloadEnd;
+
+        const R_arrival = this.rng.nextUniform();
+        const timeBetweenArrivals = -30 * Math.log(R_arrival);
 
         events.push({
           eventNumber: eventNumber++,
           time: currentTime,
           eventType: 'ARRIVAL',
-          truckId,
-          arrivalTime,
+          truckId: truckCount,
+          timeBetweenArrivals,
+          unloadDuration,
+          R_arrival,
+          R_unload,
+          arrivalTime: currentTime,
           unloadStart,
           unloadEnd,
           waitTime,
-          queueLength: queue.length,
+          queueLength,
+          equipmentBusy: currentTime < equipmentFreeTime,
         });
 
-        // Programar próxima llegada
-        nextArrival = currentTime + this.generateExponentialTime();
+        nextArrivalTime = currentTime + timeBetweenArrivals;
       } else {
-        // Evento: FIN_DESCARGA
-        // Atender al primer camión de la cola (si hay)
-        if (queue.length > 0) {
-          const arrivalTime = queue.shift()!;
-          const waitTime = currentTime - arrivalTime;
-          totalWaitTime += waitTime;
-          const unloadDur = this.minUnload + (this.maxUnload - this.minUnload) * this.rng.nextUniform();
-          const unloadStart = currentTime;
-          const unloadEnd = currentTime + unloadDur;
-          equipmentFreeTime = unloadEnd;
-          totalServiceTime += unloadDur;
-
-          // Buscar el ID del camión que sale (no lo tenemos fácil, asignamos 0 temporal)
-          // Para efectos de la tabla de eventos, no es crítico; el frontend usa los datos de llegada.
-          events.push({
-            eventNumber: eventNumber++,
-            time: currentTime,
-            eventType: 'UNLOAD_END',
-            truckId: 0,
-            arrivalTime,
-            unloadStart,
-            unloadEnd,
-            waitTime,
-            queueLength: queue.length,
-          });
-        } else {
-          // No hay cola, el equipo queda libre
-          equipmentFreeTime = Infinity;
-        }
+        break;
       }
     }
 
-    const trucksServed = events.filter(e => e.eventType === 'ARRIVAL').length;
-    const avgWaitTime = trucksServed > 0 ? totalWaitTime / trucksServed : 0;
-    const equipmentCost = this.equipment * 200; // 8 horas * $25/hora = $200 por trabajador
-    const waitCost = 50 * (totalWaitTime / 60); // $50/hora, convertir minutos a horas
+    const trucksServed = events.length;
+    const equipmentCost = this.equipment * 200;
+    const waitCost = 50 * (totalWaitTime / 60); // convertir minutos a horas
     const totalCost = equipmentCost + waitCost;
-    const utilizationRate = (totalServiceTime / durationMinutes) * 100;
+    const avgWaitTime = trucksServed > 0 ? totalWaitTime / trucksServed : 0;
+    const utilizationRate = equipmentFreeTime > 0 ? (equipmentFreeTime / durationMinutes) * 100 : 0;
 
     return {
-      events: events.filter(e => e.eventType === 'ARRIVAL'), // solo mostramos llegadas para simplicidad
+      events,
       totalWaitTime,
       trucksServed,
       equipmentCost,
@@ -340,6 +318,11 @@ export class WarehouseSimulator {
     };
   }
 
+  /**
+   * Genera tiempo entre llegadas usando distribución exponencial
+   * Media = 30 minutos (lambda = 2 camiones/hora)
+   * t = -30 * ln(R)
+   */
   private generateExponentialTime(): number {
     const R = this.rng.nextUniform();
     return -30 * Math.log(R);
