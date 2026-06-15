@@ -244,6 +244,7 @@ export class WarehouseSimulator {
     let nextArrivalTime = this.generateExponentialTime();
     let equipmentFreeTime = 0;
     let totalWaitTime = 0;
+    let totalBusyTime = 0;
     let queueLength = 0;
     let truckCount = 0;
 
@@ -269,6 +270,11 @@ export class WarehouseSimulator {
         } else {
           queueLength = 0;
         }
+
+        // Calcular tiempo ocupado para esta operación (capped al límite de duración)
+        const actualUnloadEnd = Math.min(unloadEnd, durationMinutes);
+        const busyDuration = Math.max(0, actualUnloadEnd - unloadStart);
+        totalBusyTime += busyDuration;
 
         totalWaitTime += waitTime;
         equipmentFreeTime = unloadEnd;
@@ -304,7 +310,7 @@ export class WarehouseSimulator {
     const waitCost = 50 * (totalWaitTime / 60); // convertir minutos a horas
     const totalCost = equipmentCost + waitCost;
     const avgWaitTime = trucksServed > 0 ? totalWaitTime / trucksServed : 0;
-    const utilizationRate = equipmentFreeTime > 0 ? (equipmentFreeTime / durationMinutes) * 100 : 0;
+    const utilizationRate = durationMinutes > 0 ? (totalBusyTime / durationMinutes) * 100 : 0;
 
     return {
       events,
